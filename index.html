@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>南④地区会 3月例会 回答状況</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- ========== パスワード画面 ========== -->
+<div id="auth-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-sm text-center">
+    <div class="text-4xl mb-4">🔒</div>
+    <h1 class="text-xl font-bold text-gray-700 mb-2">南④地区会</h1>
+    <p class="text-sm text-gray-400 mb-6">3月例会 回答状況ダッシュボード</p>
+    <input id="pw-input" type="password" placeholder="パスワードを入力"
+      class="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-400 mb-3"
+      onkeydown="if(event.key==='Enter') checkPassword()">
+    <button onclick="checkPassword()"
+      class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">入る</button>
+    <p id="pw-error" class="text-red-500 text-sm mt-3 hidden">パスワードが違います</p>
+  </div>
+</div>
+
+<!-- ========== メインコンテンツ ========== -->
+<div id="main-content" class="hidden">
+  <header class="bg-blue-700 text-white shadow-md">
+    <div class="container mx-auto px-6 py-4">
+      <h1 class="text-xl font-bold">南④地区会 3月例会 回答状況ダッシュボード</h1>
+      <p id="last-updated" class="text-blue-200 text-xs mt-1"></p>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-6 py-8 max-w-4xl">
+
+    <!-- ローディング -->
+    <div id="loading" class="text-center py-20 text-gray-400">
+      <div class="text-4xl animate-spin mb-4">⏳</div>
+      <p>データを読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div id="error-msg" class="hidden bg-red-100 text-red-700 rounded-xl p-6 text-center">
+      データの取得に失敗しました。GASのURLを確認してください。
+    </div>
+
+    <!-- サマリーカード -->
+    <div id="summary-section" class="hidden">
+
+      <!-- イベント情報 -->
+      <div id="event-info" class="bg-white rounded-xl shadow p-6 mb-6 border-l-4 border-blue-500">
+        <h2 class="text-xs text-gray-400 uppercase font-bold mb-2">開催イベント</h2>
+        <p id="event-title" class="text-lg font-bold text-gray-800"></p>
+        <p id="event-meta" class="text-sm text-gray-500 mt-1"></p>
+      </div>
+
+      <!-- KPIカード -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow p-5 text-center border-t-4 border-gray-400">
+          <p class="text-xs text-gray-400 mb-1">対象人数</p>
+          <p id="kpi-total" class="text-3xl font-bold text-gray-700">-</p>
+          <p class="text-xs text-gray-400">名</p>
+        </div>
+        <div class="bg-white rounded-xl shadow p-5 text-center border-t-4 border-green-500">
+          <p class="text-xs text-gray-400 mb-1">出席</p>
+          <p id="kpi-attended" class="text-3xl font-bold text-green-600">-</p>
+          <p class="text-xs text-gray-400">名</p>
+        </div>
+        <div class="bg-white rounded-xl shadow p-5 text-center border-t-4 border-yellow-400">
+          <p class="text-xs text-gray-400 mb-1">欠席（回答済）</p>
+          <p id="kpi-absent" class="text-3xl font-bold text-yellow-500">-</p>
+          <p class="text-xs text-gray-400">名</p>
+        </div>
+        <div class="bg-white rounded-xl shadow p-5 text-center border-t-4 border-red-400">
+          <p class="text-xs text-gray-400 mb-1">未回答</p>
+          <p id="kpi-noreply" class="text-3xl font-bold text-red-500">-</p>
+          <p class="text-xs text-gray-400">名</p>
+        </div>
+      </div>
+
+      <!-- 回答率バー -->
+      <div class="bg-white rounded-xl shadow p-6 mb-6">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="font-bold text-gray-700">回答率</h2>
+          <span id="reply-rate-text" class="text-2xl font-bold text-blue-600">-%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-4">
+          <div id="reply-rate-bar" class="bg-blue-500 h-4 rounded-full transition-all duration-700" style="width:0%"></div>
+        </div>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-xs text-gray-400">出席率</span>
+          <span id="attend-rate-text" class="text-sm font-bold text-green-600">-%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+          <div id="attend-rate-bar" class="bg-green-500 h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- グループ別集計 -->
+      <div class="bg-white rounded-xl shadow p-6">
+        <h2 class="font-bold text-gray-700 mb-4">グループ別 未回答状況</h2>
+        <div id="group-table" class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 text-gray-500 text-xs uppercase">
+                <th class="text-left px-4 py-3">グループ</th>
+                <th class="text-right px-4 py-3">対象</th>
+                <th class="text-right px-4 py-3">未回答</th>
+                <th class="text-right px-4 py-3">回答率</th>
+                <th class="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="group-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /summary-section -->
+  </main>
+</div>
+
+<script>
+  // ============================================================
+  // 設定
+  // ============================================================
+  const GAS_URL  = "YOUR_GAS_WEB_APP_URL_HERE"; // ← デプロイ後に書き換え
+  const PASSWORD = "reikai2026";                 // ← パスワードを変更
+
+  // ============================================================
+  // 認証
+  // ============================================================
+  function checkPassword() {
+    const input = document.getElementById('pw-input').value;
+    if (input === PASSWORD) {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('main-content').classList.remove('hidden');
+      fetchData();
+    } else {
+      document.getElementById('pw-error').classList.remove('hidden');
+      document.getElementById('pw-input').value = '';
+      document.getElementById('pw-input').focus();
+    }
+  }
+
+  // ============================================================
+  // データ取得
+  // ============================================================
+  async function fetchData() {
+    try {
+      const res  = await fetch(GAS_URL);
+      const data = await res.json();
+      render(data);
+    } catch (e) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error-msg').classList.remove('hidden');
+    }
+  }
+
+  // ============================================================
+  // 描画
+  // ============================================================
+  function render(data) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('summary-section').classList.remove('hidden');
+
+    // 更新日時
+    const d = new Date(data.generated_at);
+    document.getElementById('last-updated').textContent =
+      `最終更新：${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+
+    // 最初のイベントを表示（複数ある場合は先頭）
+    const ev = data.event_stats[0];
+    if (ev) {
+      document.getElementById('event-title').textContent = ev.title;
+      document.getElementById('event-meta').textContent  = `${ev.date}　${ev.venue}`;
+
+      document.getElementById('kpi-total').textContent    = ev.total;
+      document.getElementById('kpi-attended').textContent = ev.attended;
+      document.getElementById('kpi-absent').textContent   = ev.absent;
+      document.getElementById('kpi-noreply').textContent  = ev.no_reply;
+
+      document.getElementById('reply-rate-text').textContent  = ev.reply_rate + '%';
+      document.getElementById('attend-rate-text').textContent = ev.attend_rate + '%';
+      setTimeout(() => {
+        document.getElementById('reply-rate-bar').style.width  = ev.reply_rate + '%';
+        document.getElementById('attend-rate-bar').style.width = ev.attend_rate + '%';
+      }, 100);
+    }
+
+    // グループ別テーブル
+    const tbody = document.getElementById('group-tbody');
+    tbody.innerHTML = '';
+    data.group_stats.forEach(g => {
+      const rate  = g.reply_rate;
+      const color = rate >= 80 ? 'bg-green-100 text-green-700'
+                  : rate >= 50 ? 'bg-yellow-100 text-yellow-700'
+                  :              'bg-red-100 text-red-600';
+      tbody.innerHTML += `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">${g.group}</td>
+          <td class="px-4 py-3 text-right">${g.total}名</td>
+          <td class="px-4 py-3 text-right text-red-500 font-bold">${g.no_reply}名</td>
+          <td class="px-4 py-3 text-right">${rate}%</td>
+          <td class="px-4 py-3">
+            <span class="text-xs px-2 py-1 rounded-full font-bold ${color}">${rate}%</span>
+          </td>
+        </tr>`;
+    });
+  }
+</script>
+</body>
+</html>
